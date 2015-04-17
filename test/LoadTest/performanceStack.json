@@ -186,6 +186,30 @@
       }
     },
 
+    "TargetDNS" : {
+      "Type" : "AWS::Route53::RecordSet",
+      "Properties" : {
+        "HostedZoneName" : {
+          "Fn::Join" : [ "", [
+            { "Ref" : "DNSName" }, "."
+          ] ]
+        },
+        "Comment" : "DNS name for the injector.",
+        "Name" : {
+          "Fn::Join" : [ "", [
+            "target.",
+            { "Ref" : "AWS::StackName" }, ".",
+            {"Ref" : "DNSName"} ,"."
+          ] ]
+        },
+        "Type" : "A",
+        "TTL" : "900",
+        "ResourceRecords" : [
+          { "Fn::GetAtt" : [ "TargetCore", "PublicIp" ] }
+        ]
+      }
+    },
+
     "TargetCore": {
       "Type": "AWS::EC2::Instance",
       "Properties": {
@@ -227,6 +251,30 @@
             ]
           }
         }
+      }
+    },
+
+    "MongoDNS" : {
+      "Type" : "AWS::Route53::RecordSet",
+      "Properties" : {
+        "HostedZoneName" : {
+          "Fn::Join" : [ "", [
+            { "Ref" : "DNSName" }, "."
+          ] ]
+        },
+        "Comment" : "DNS name for the injector.",
+        "Name" : {
+          "Fn::Join" : [ "", [
+            "mongo.",
+            { "Ref" : "AWS::StackName" }, ".",
+            {"Ref" : "DNSName"} ,"."
+          ] ]
+        },
+        "Type" : "A",
+        "TTL" : "900",
+        "ResourceRecords" : [
+          { "Fn::GetAtt" : [ "MongoDBCore", "PublicIp" ] }
+        ]
       }
     },
 
@@ -292,20 +340,44 @@
       }
     },
 
+    "CoreDNS" : {
+      "Type" : "AWS::Route53::RecordSet",
+      "Properties" : {
+        "HostedZoneName" : {
+          "Fn::Join" : [ "", [
+            { "Ref" : "DNSName" }, "."
+          ] ]
+        },
+        "Comment" : "DNS name for the injector.",
+        "Name" : {
+          "Fn::Join" : [ "", [
+            "core.",
+            { "Ref" : "AWS::StackName" }, ".",
+            {"Ref" : "DNSName"} ,"."
+          ] ]
+        },
+        "Type" : "A",
+        "TTL" : "900",
+        "ResourceRecords" : [
+          { "Fn::GetAtt" : [ "CoreLoadBalancer", "DNSName" ] }
+        ]
+      }
+    },
+
     "CoreLoadBalancer" : {
       "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
       "Properties" : {
         "AvailabilityZones" : { "Fn::GetAZs" : "" },
         "Listeners" : [
           {
-          "LoadBalancerPort" : "1026",
-          "InstancePort" : "1026",
-          "Protocol" : "HTTP"
+            "LoadBalancerPort" : "1026",
+            "InstancePort" : "1026",
+            "Protocol" : "TCP"
           },
           {
             "LoadBalancerPort" : "8082",
             "InstancePort" : "8082",
-            "Protocol" : "HTTP"
+            "Protocol" : "TCP"
           }
         ]
       }
