@@ -340,30 +340,6 @@
       }
     },
 
-    "CoreDNS" : {
-      "Type" : "AWS::Route53::RecordSet",
-      "Properties" : {
-        "HostedZoneName" : {
-          "Fn::Join" : [ "", [
-            { "Ref" : "DNSName" }, "."
-          ] ]
-        },
-        "Comment" : "DNS name for the injector.",
-        "Name" : {
-          "Fn::Join" : [ "", [
-            "core.",
-            { "Ref" : "AWS::StackName" }, ".",
-            {"Ref" : "DNSName"} ,"."
-          ] ]
-        },
-        "Type" : "A",
-        "TTL" : "900",
-        "ResourceRecords" : [
-          { "Fn::GetAtt" : [ "CoreLoadBalancer", "DNSName" ] }
-        ]
-      }
-    },
-
     "CoreLoadBalancer" : {
       "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
       "Properties" : {
