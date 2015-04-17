@@ -1,0 +1,481 @@
+{
+  "Description": "Stack for Industrial IoT Platform Core Performance Tests",
+  "Parameters": {
+    "KeyPair": {
+      "Description": "The EC2 Key Pair to allow SSH access to the instance",
+      "Type": "String",
+      "Default": "PerformanceTestKeys"
+    },
+    "MongoSecurityGroup": {
+      "Description": "Name of the Mongo DB instance security group",
+      "Type": "String",
+      "Default": "MongoDBPerformanceTests"
+    },
+    "CoreSecurityGroup": {
+      "Description": "Name of the Core instance security group",
+      "Type": "String",
+      "Default": "CorePerformanceTest"
+    },
+    "TargetSecurityGroup": {
+      "Description": "Name of the target instance security group",
+      "Type": "String",
+      "Default": "TargetPerformanceTest"
+    },
+    "InjectorSecurityGroup": {
+      "Description": "Name of the Injector instance security group",
+      "Type": "String",
+      "Default": "CorePerformanceTest"
+    },
+    "InstancesType": {
+      "Description": "Type of the instances to deploy",
+      "Type": "String",
+      "Default": "t2.micro"
+    },
+    "CoreInstances": {
+      "Description": "Number of instances of the Core machine to deploy",
+      "Type": "Number",
+      "Default": 2
+    },
+    "MaxCoreInstances": {
+      "Description": "Maximum number of instances of the Core machine available",
+      "Type": "Number",
+      "Default": 4
+    },
+    "DNSName": {
+      "Description": "Name of the DNS",
+      "Type": "String",
+      "Default": "iot-qa.tid.es."
+    }
+  },
+  "Resources": {
+    "CFNInitUser" : {
+      "Type" : "AWS::IAM::User",
+      "Properties" : {
+        "Policies": [{
+          "PolicyName": "AccessForCFNInit",
+          "PolicyDocument" : {
+            "Statement": [{
+              "Effect": "Allow",
+              "Action": "cloudformation:DescribeStackResource",
+              "Resource" : "*"
+            }]
+          }
+        }]
+      }
+    },
+
+    "CFNKeys" : {
+      "Type" : "AWS::IAM::AccessKey",
+      "Properties" : {
+        "UserName" : { "Ref": "CFNInitUser" }
+      }
+    },
+
+    "InjectorDNS" : {
+      "Type" : "AWS::Route53::RecordSet",
+      "Properties" : {
+        "HostedZoneName" : {
+          "Fn::Join" : [ "", [
+            { "Ref" : "DNSName" }, "."
+          ] ]
+        },
+        "Comment" : "DNS name for the injector.",
+        "Name" : {
+          "Fn::Join" : [ "", [
+            "injector.",
+            { "Ref" : "AWS::StackName" }, ".",
+            {"Ref" : "DNSName"} ,"."
+          ] ]
+        },
+        "Type" : "A",
+        "TTL" : "900",
+        "ResourceRecords" : [
+          { "Fn::GetAtt" : [ "MainInjectorCore", "PublicIp" ] }
+        ]
+      }
+    },
+
+    "MainInjectorCore": {
+      "Type": "AWS::EC2::Instance",
+      "DependsOn": "CoreLoadBalancer",
+      "Properties": {
+        "KeyName": {"Ref": "KeyPair"},
+        "ImageId": "ami-6130aa16",
+        "InstanceType": {"Ref": "InstancesType"},
+        "SecurityGroups": [{"Ref": "InjectorSecurityGroup"}],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "",
+                [
+                  "InjectorCore-",
+                  {"Ref": "AWS::StackName"}
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "Owner",
+            "Value": "PerformanceTeam"
+          }
+        ],
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "",
+              [
+                "#!/bin/bash\n",
+                "echo \"$(ifconfig eth0 | grep inet.addr| awk '{print $2}' | cut -d: -f2) $(cat /etc/hostname)\" >> /etc/hosts\n",
+                "yum install -y xorg-x11-xauth.x86_64 xorg-x11-server-utils.x86_64\n",
+				"chkconfig iotagent off\n",
+                "chkconfig contextBroker off\n",
+                "cat <<EOF > /root/stackdata\n",
+                "corebalancer=",
+                {
+                  "Fn::GetAtt": [
+                    "CoreLoadBalancer",
+                    "DNSName"
+                  ]
+                },
+                "\n",
+                "mongopublic=",
+                {
+                  "Fn::GetAtt": [
+                    "MongoDBCore",
+                    "PublicIp"
+                  ]
+                },
+                "\n",
+                "mongoprivate=",
+                {
+                  "Fn::GetAtt": [
+                    "MongoDBCore",
+                    "PrivateIp"
+                  ]
+                },
+                "\n",
+                "targetpublic=",
+                {
+                  "Fn::GetAtt": [
+                    "TargetCore",
+                    "PublicIp"
+                  ]
+                },
+                "\n",
+                "targetprivate=",
+                {
+                  "Fn::GetAtt": [
+                    "TargetCore",
+                    "PrivateIp"
+                  ]
+                },
+                "\n",
+                "EOF\n",
+                "service iotagent stop\n",
+                "service contextBroker stop\n",
+                "cd /opt\n",
+                "wget http://apache.rediris.es//jmeter/binaries/apache-jmeter-2.13.tgz\n",
+                "tar xvfz apache-jmeter-2.13.tgz\n",
+                "\n"
+              ]
+            ]
+          }
+        }
+      }
+    },
+
+    "TargetCore": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "KeyName": {"Ref": "KeyPair"},
+        "ImageId": "ami-6130aa16",
+        "InstanceType": {"Ref": "InstancesType"},
+        "SecurityGroups": [{"Ref": "TargetSecurityGroup"}],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "",
+                [
+                  "TargetCore-",
+                  {"Ref": "AWS::StackName"}
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "Owner",
+            "Value": "PerformanceTeam"
+          }
+        ],
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "",
+              [
+                "#!/bin/bash\n",
+                "echo \"$(ifconfig eth0 | grep inet.addr| awk '{print $2}' | cut -d: -f2) $(cat /etc/hostname)\" >> /etc/hosts\n",
+                "chkconfig iotagent off\n",
+                "chkconfig contextBroker off\n",
+                "service iotagent stop\n",
+                "service contextBroker stop\n",
+                "\n"
+              ]
+            ]
+          }
+        }
+      }
+    },
+
+    "MongoDBCore": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "KeyName": {"Ref": "KeyPair"},
+        "ImageId": "ami-6130aa16",
+        "InstanceType": {"Ref": "InstancesType"},
+        "SecurityGroups": [{"Ref": "MongoSecurityGroup"}],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "",
+                [
+                  "PerformanceMongo-",
+                  {"Ref": "AWS::StackName"}
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "Owner",
+            "Value": "PerformanceTeam"
+          }
+        ],
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "",
+              [
+                "#!/bin/bash\n",
+                "echo \"$(ifconfig eth0 | grep inet.addr| awk '{print $2}' | cut -d: -f2) $(cat /etc/hostname)\" >> /etc/hosts\n",
+                "chkconfig iotagent off\n",
+                "chkconfig contextBroker off\n",
+                "service iotagent stop\n",
+                "service contextBroker stop\n",
+                "wget https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz\n",
+                "tar xvfz aws-cfn-bootstrap-latest.tar.gz\n",
+                "cd aws-cfn* && python setup.py install\n",
+                "hostname $(cat /etc/hostname)\n",
+                "cfn-signal '",
+                {"Ref": "MongoWaitHandle"},
+                "'\n",
+                "\n"
+              ]
+            ]
+          }
+        }
+      }
+    },
+
+    "MongoWaitHandle": {
+      "Type": "AWS::CloudFormation::WaitConditionHandle"
+    },
+    "MongoCondition": {
+      "Type": "AWS::CloudFormation::WaitCondition",
+      "Properties": {
+        "Handle": {"Ref": "MongoWaitHandle"},
+        "Timeout": 400
+      }
+    },
+
+    "CoreLoadBalancer" : {
+      "Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
+      "Properties" : {
+        "AvailabilityZones" : { "Fn::GetAZs" : "" },
+        "Listeners" : [
+          {
+          "LoadBalancerPort" : "1026",
+          "InstancePort" : "1026",
+          "Protocol" : "HTTP"
+          },
+          {
+            "LoadBalancerPort" : "8082",
+            "InstancePort" : "8082",
+            "Protocol" : "HTTP"
+          }
+        ]
+      }
+    },
+
+    "CoreScalingGroup" : {
+      "Type" : "AWS::AutoScaling::AutoScalingGroup",
+      "Properties" : {
+        "AvailabilityZones": {"Fn::GetAZs": ""},
+        "LaunchConfigurationName": {"Ref": "CoreMachine"},
+        "LoadBalancerNames" : [ { "Ref" : "CoreLoadBalancer" } ],
+        "MinSize": "1",
+        "MaxSize": {"Ref": "MaxCoreInstances"},
+        "DesiredCapacity": {"Ref": "CoreInstances"},
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "",
+                [
+                  "PerformanceCore-",
+                  {"Ref": "AWS::StackName"}
+                ]
+              ]
+            },
+            "PropagateAtLaunch": "true"
+          },
+          {
+            "Key": "Owner",
+            "Value": "PerformanceTeam",
+            "PropagateAtLaunch": "true"
+          }
+        ]
+      }
+    },
+
+    "CoreMachine": {
+      "Type": "AWS::AutoScaling::LaunchConfiguration",
+      "DependsOn": "MongoDBCore",
+      "Properties": {
+        "KeyName": {"Ref": "KeyPair"},
+        "ImageId": "ami-6130aa16",
+        "InstanceType": {"Ref": "InstancesType"},
+        "SecurityGroups": [{"Ref": "CoreSecurityGroup"}],
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "",
+              [
+                "#!/bin/bash\n",
+                "echo \"$(ifconfig eth0 | grep inet.addr| awk '{print $2}' | cut -d: -f2) $(cat /etc/hostname)\" >> /etc/hosts\n",
+				"yum install -y tcpdump\n",
+				"yum install -y telnet\n",
+                "chkconfig mongod off\n",
+                "service iotagent stop\n",
+                "service contextBroker stop\n",
+                "service mongod stop\n",
+                "sed -i \"s/BROKER_DATABASE_HOST=localhost/BROKER_DATABASE_HOST=",
+                {
+                  "Fn::GetAtt": [
+                    "MongoDBCore",
+                    "PrivateIp"
+                  ]
+                },
+                "/g\" /etc/sysconfig/contextBroker\n",
+				"sed -i \"s/#BROKER_EXTRA_OPS=.*/BROKER_EXTRA_OPS=\\\"-multiservice -timeout 10\\\"/g\" /etc/sysconfig/contextBroker\n",
+                "sed \"s/\\\"host\\\": \\\"127.0.0.1\\\",/\\\"host\\\": \\\"",
+                {
+                  "Fn::GetAtt": [
+                    "MongoDBCore",
+                    "PrivateIp"
+                  ]
+                },
+                "\\\",/g\" /usr/local/iot/config.json\n",
+                "service contextBroker start\n",
+                "service iotagent start\n",
+
+                "wget https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-latest.tar.gz\n",
+                "tar xvfz aws-cfn-bootstrap-latest.tar.gz\n",
+                "cd aws-cfn* && python setup.py install\n",
+                "hostname $(cat /etc/hostname)\n",
+                "cfn-signal '",
+                {"Ref": "CoreWaitHandle"},
+                "'\n",
+                "\n"
+              ]
+            ]
+          }
+        }
+      }
+    },
+    "CoreWaitHandle": {
+      "Type": "AWS::CloudFormation::WaitConditionHandle"
+    },
+    "CoreCondition": {
+      "Type": "AWS::CloudFormation::WaitCondition",
+      "Properties": {
+        "Handle": {"Ref": "CoreWaitHandle"},
+        "Timeout": 600,
+        "Count"   : { "Ref" : "CoreInstances" }
+      }
+    }
+  },
+  "Outputs": {
+    "MongoPrivateIp": {
+      "Description": "Private IP of the MongoDB Instance",
+      "Value": {
+        "Fn::GetAtt": [
+          "MongoDBCore",
+          "PrivateIp"
+        ]
+      }
+    },
+    "MongoPublicIp": {
+      "Description": "Public IP of the MongoDB Instance",
+      "Value": {
+        "Fn::GetAtt": [
+          "MongoDBCore",
+          "PublicIp"
+        ]
+      }
+    },
+    "InjectorPrivateIp": {
+      "Description": "Private IP of the MongoDB Instance",
+      "Value": {
+        "Fn::GetAtt": [
+          "MainInjectorCore",
+          "PrivateIp"
+        ]
+      }
+    },
+    "InjectorPublicIp": {
+      "Description": "Public IP of the MongoDB Instance",
+      "Value": {
+        "Fn::GetAtt": [
+          "MainInjectorCore",
+          "PublicIp"
+        ]
+      }
+    },
+    "TargetPrivateIp": {
+      "Description": "Private IP of the MongoDB Instance",
+      "Value": {
+        "Fn::GetAtt": [
+          "TargetCore",
+          "PrivateIp"
+        ]
+      }
+    },
+    "TargetPublicIp": {
+      "Description": "Public IP of the MongoDB Instance",
+      "Value": {
+        "Fn::GetAtt": [
+          "TargetCore",
+          "PublicIp"
+        ]
+      }
+    },
+    "CorePublicName": {
+      "Description": "Public IP of the Core Load Balancer",
+      "Value": {
+        "Fn::GetAtt": [
+          "CoreLoadBalancer",
+          "DNSName"
+        ]
+      }
+    }
+  },
+  "AWSTemplateFormatVersion": "2010-09-09"
+}
+   
+
