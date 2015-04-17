@@ -44,7 +44,7 @@
     "DNSName": {
       "Description": "Name of the DNS",
       "Type": "String",
-      "Default": "iot-qa.tid.es."
+      "Default": "iot-qa.tid.es"
     }
   },
   "Resources": {
