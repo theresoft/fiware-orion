@@ -254,6 +254,85 @@
       }
     },
 
+    "LbCore": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "KeyName": {"Ref": "KeyPair"},
+        "ImageId": "ami-6130aa16",
+        "InstanceType": {"Ref": "InstancesType"},
+        "SecurityGroups": [{"Ref": "CoreSecurityGroup"}],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "",
+                [
+                  "LbCore-",
+                  {"Ref": "AWS::StackName"}
+                ]
+              ]
+            }
+          },
+          {
+            "Key": "Owner",
+            "Value": "PerformanceTeam"
+          }
+        ],
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "",
+              [
+                "#!/bin/bash\n",
+                "echo \"$(ifconfig eth0 | grep inet.addr| awk '{print $2}' | cut -d: -f2) $(cat /etc/hostname)\" >> /etc/hosts\n",
+                "yum install -y Pound\n",
+                "yum install -y monit\n",
+                "service monit start\n",
+                "chkconfig monit on\n",
+
+                "sed -i \"s/Port.*80/Port 1026/g\" /etc/pound.cfg\n",
+                "sed -i \"s/Port.*8001/Port 1026/g\" /etc/pound.cfg\n",
+                "service pound start\n",
+
+                "touch /filename.out\n",
+
+                "cat <<EOF > /root/loadBalancers.sh\n",
+                "#!/bin/bash\n",
+                "sed -i '/^Service/,/^End/d' /etc/pound.cfg\n",
+                "/bin/cat /filename.out  |grep lb |awk -F '=' '{print \\$2}'|sort |uniq | awk '{print \"\\tBackEnd\\n\\t\\tAddress \"\\$1\"\\n\\t\\tPort    1026\\n\\tEnd\\n\"}'> /tmp/serverIps\n",
+                "echo -e \"Service\n\" >> /etc/pound.cfg\n",
+                "cat /tmp/serverIps >> /etc/pound.cfg\n",
+                "echo -e \"\nEnd\" >> /etc/pound.cfg\n",
+                "service pound restart\n",
+                "\n",
+                "EOF\n",
+                "chmod +x /root/loadBalancers.sh\n",
+
+                "cat <<EOF > /etc/monit.d/loadBalancer\n",
+                "check file filename.out with path /filename.out\n",
+                "    if failed checksum then exec \"/root/loadBalancers.sh\"\n",
+                "\n",
+                "EOF\n",
+
+                "service monit restart\n",
+
+                "chkconfig mongod off\n",
+                "chkconfig iotagent off\n",
+                "chkconfig contextBroker off\n",
+                "service mongod stop\n",
+                "service iotagent stop\n",
+                "service contextBroker stop\n",
+
+                "nohup nc -d -k -l 4444 &> filename.out&\n",
+                "\n"
+              ]
+            ]
+          }
+        }
+      }
+    },
+
     "MongoDNS" : {
       "Type" : "AWS::Route53::RecordSet",
       "Properties" : {
@@ -280,6 +359,7 @@
 
     "MongoDBCore": {
       "Type": "AWS::EC2::Instance",
+      "DependsOn": "LbCore",
       "Properties": {
         "KeyName": {"Ref": "KeyPair"},
         "ImageId": "ami-6130aa16",
@@ -436,6 +516,14 @@
                 "tar xvfz aws-cfn-bootstrap-latest.tar.gz\n",
                 "cd aws-cfn* && python setup.py install\n",
                 "hostname $(cat /etc/hostname)\n",
+                "echo \"*/2 * * * * root /usr/bin/curl ",
+                {
+                  "Fn::GetAtt": [
+                    "LbCore",
+                    "PublicIp"
+                  ]
+                },
+                ":4444?lb=$(curl -f http://169.254.169.254/latest/meta-data/public-ipv4 2> /dev/null) -m 1\" > /etc/cron.d/updateIp\n",
                 "cfn-signal '",
                 {"Ref": "CoreWaitHandle"},
                 "'\n",
