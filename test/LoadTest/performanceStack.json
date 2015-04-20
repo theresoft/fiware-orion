@@ -566,7 +566,7 @@
       }
     },
     "InjectorPrivateIp": {
-      "Description": "Private IP of the MongoDB Instance",
+      "Description": "Private IP of the Injector Instance",
       "Value": {
         "Fn::GetAtt": [
           "MainInjectorCore",
@@ -575,7 +575,7 @@
       }
     },
     "InjectorPublicIp": {
-      "Description": "Public IP of the MongoDB Instance",
+      "Description": "Public IP of the Injector Instance",
       "Value": {
         "Fn::GetAtt": [
           "MainInjectorCore",
@@ -584,7 +584,7 @@
       }
     },
     "TargetPrivateIp": {
-      "Description": "Private IP of the MongoDB Instance",
+      "Description": "Private IP of the Target Instance",
       "Value": {
         "Fn::GetAtt": [
           "TargetCore",
@@ -593,10 +593,19 @@
       }
     },
     "TargetPublicIp": {
-      "Description": "Public IP of the MongoDB Instance",
+      "Description": "Public IP of the Target instance",
       "Value": {
         "Fn::GetAtt": [
           "TargetCore",
+          "PublicIp"
+        ]
+      }
+    },
+    "LoadBalancerPublicIp": {
+      "Description": "Public IP of the Load Balancer",
+      "Value": {
+        "Fn::GetAtt": [
+          "LbCore",
           "PublicIp"
         ]
       }
@@ -613,5 +622,5 @@
   },
   "AWSTemplateFormatVersion": "2010-09-09"
 }
-   
+
 
