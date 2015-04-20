@@ -33,7 +33,7 @@
           </elementProp>
           <elementProp name="TPS" elementType="Argument">
             <stringProp name="Argument.name">TPS</stringProp>
-            <stringProp name="Argument.value">${__P(tps,6000)}</stringProp>
+            <stringProp name="Argument.value">${__P(tps,24000)}</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
             <stringProp name="Argument.desc">Transacciones por minuto</stringProp>
           </elementProp>
