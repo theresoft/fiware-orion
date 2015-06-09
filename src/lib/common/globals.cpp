@@ -94,7 +94,7 @@ void transactionIdSet(void)
 void orionInit(OrionExitFunction exitFunction, const char* version, SemRequestType reqPolicy, bool semTimeStat)
 {
   // Give the rest library the correct version string of this executable
-  versionSet(version);
+  //versionSet(version);
 
   // The function to call on fatal error
   orionExitFunction = exitFunction;

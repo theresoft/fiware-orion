@@ -497,7 +497,8 @@ do                                                                     \
                                                                        \
   if ((text = lmTextGet s) != NULL)                                    \
   {                                                                    \
-    lmOut(text, 'F', "ForcedLog", 0, "***", 0, NULL);                  \
+    /*lmOut(text, 'F', "ForcedLog", 0, "***", 0, NULL);*/              \
+    printf("%s\n", text);                                              \
     ::free(text);                                                      \
   }                                                                    \
 } while (0)

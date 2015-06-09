@@ -1427,7 +1427,7 @@ static void processEntity(ContextRegistrationResponse* crr, EntityIdVector enV, 
 *
 * processAttribute -
 */
-static void processAttribute(ContextRegistrationResponse* crr, AttributeList attrL, BSONObj attribute) {
+static void processObjectAttribute(ContextRegistrationResponse* crr, AttributeList attrL, BSONObj attribute) {
 
     ContextRegistrationAttribute attr(
                 STR_FIELD(attribute, REG_ATTRS_NAME),
@@ -1468,7 +1468,7 @@ static void processContextRegistrationElement (BSONObj cr, EntityIdVector enV, A
           std::vector<BSONElement> queryAttrV = cr.getField(REG_ATTRS).Array();
           for (unsigned int ix = 0; ix < queryAttrV.size(); ++ix)
           {
-            processAttribute(&crr, attrL, queryAttrV[ix].embeddedObject());
+            processObjectAttribute(&crr, attrL, queryAttrV[ix].embeddedObject());
           }
         }
     }
