@@ -393,8 +393,9 @@ static bool equalMetadataVectors(BSONObj& mdV1, BSONObj& mdV2)
 */
 bool emptyAttributeValue(ContextAttribute* caP)
 {
-  /* Note that ValueTypeNumber and ValueTypeBoolean are always non-empty */
-  return (caP->valueType == ValueTypeString) && (caP->stringValue == "") && (caP->compoundValueP == NULL);
+  /* Note that ValueTypeNumber and ValueTypeBoolean are always non-empty.
+   * ValueTypeString is empty only if valueGiven is false (i.e. "" is a non-empty value) */
+  return (caP->valueType == ValueTypeString) && !caP->valueGiven && (caP->compoundValueP == NULL);
 }
 
 
@@ -492,11 +493,6 @@ static bool mergeAttrInfo(BSONObj& attr, ContextAttribute* caP, BSONObj* mergedA
    *    'copied' from DB to the variable 'ab' and sent back to mongo, to not destroy the value  */
   if (!emptyAttributeValue(caP))
   {
-    valueBson(caP, ab);
-  }
-  else if (caP->valueGiven)
-  {
-    LM_M(("CALLING valueBson !!!"));
     valueBson(caP, ab);
   }
   else
