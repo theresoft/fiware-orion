@@ -36,7 +36,7 @@ brokerStart CB
 # 05. Update temp=40, metadata max=20
 # 06. Query Room1
 # 07. Update metadata max=25
-# 06. Query Room1
+# 08. Query Room1
 
 echo "01. Create Room1, temp=20 with metadata max=50"
 echo "=============================================="

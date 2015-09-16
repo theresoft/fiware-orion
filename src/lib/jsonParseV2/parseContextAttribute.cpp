@@ -143,28 +143,34 @@ std::string parseContextAttribute(ConnectionInfo* ciP, const Value::ConstMemberI
     caP->type        = "";
     caP->stringValue = iter->value.GetString();
     caP->valueType   = orion::ValueTypeString;
+    caP->valueGiven  = true;
   }
   else if (type == "Number")
   {
     caP->type        = "";
     caP->valueType   = orion::ValueTypeNumber;
     caP->numberValue = iter->value.GetDouble();
+    caP->valueGiven  = true;
   }
   else if (type == "True")
   {
     caP->type        = "";
     caP->valueType   = orion::ValueTypeBoolean;
     caP->boolValue   = true;
+    caP->valueGiven  = true;
   }
   else if (type == "False")
   {
     caP->type        = "";
     caP->valueType   = orion::ValueTypeBoolean;
     caP->boolValue   = false;
+    caP->valueGiven  = true;
   }
   else if (type == "Array")
   {
-    caP->valueType = orion::ValueTypeObject;
+    caP->valueType   = orion::ValueTypeObject;
+    caP->valueGiven  = true;
+
     std::string r = parseContextAttributeCompoundValue(iter, caP, NULL);
     if (r != "OK")
     {
@@ -184,6 +190,8 @@ std::string parseContextAttribute(ConnectionInfo* ciP, const Value::ConstMemberI
     //
     if (iter->value.HasMember("value"))
     {
+      caP->valueGiven  = true;
+
       r = parseContextAttributeObject(iter->value, caP);
       if (r != "OK")
       {
@@ -195,7 +203,8 @@ std::string parseContextAttribute(ConnectionInfo* ciP, const Value::ConstMemberI
     else
     {
       parseContextAttributeCompoundValue(iter, caP, NULL);
-      caP->valueType = orion::ValueTypeObject;
+      caP->valueType   = orion::ValueTypeObject;
+      caP->valueGiven  = true;
     }
   }
   else

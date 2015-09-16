@@ -5173,9 +5173,9 @@ TEST(mongoUpdateContextRequest, createEntityMd)
 
 /* ****************************************************************************
 *
-* updateEmptyValueFail -
+* updateNoValueFail -
 */
-TEST(mongoUpdateContextRequest, updateEmptyValueFail)
+TEST(mongoUpdateContextRequest, updateNoValueFail)
 {
     HttpStatusCode         ms;
     UpdateContextRequest   req;
@@ -5190,6 +5190,7 @@ TEST(mongoUpdateContextRequest, updateEmptyValueFail)
     ContextElement ce;
     ce.entityId.fill("E1", "T1", "false");
     ContextAttribute ca("A1", "TA1", "");
+    ca.valueGiven = false;
     ce.contextAttributeVector.push_back(&ca);
     req.contextElementVector.push_back(&ce);
     req.updateActionType.set("UPDATE");
@@ -5330,9 +5331,9 @@ TEST(mongoUpdateContextRequest, updateEmptyValueFail)
 
 /* ****************************************************************************
 *
-* appendEmptyValueFail -
+* appendNoValueFail -
 */
-TEST(mongoUpdateContextRequest, appendEmptyValueFail)
+TEST(mongoUpdateContextRequest, appendNoValueFail)
 {
     HttpStatusCode         ms;
     UpdateContextRequest   req;
@@ -5347,6 +5348,7 @@ TEST(mongoUpdateContextRequest, appendEmptyValueFail)
     ContextElement ce;
     ce.entityId.fill("E1", "T1", "false");
     ContextAttribute ca("A8", "TA8", "");
+    ca.valueGiven = false;
     ce.contextAttributeVector.push_back(&ca);
     req.contextElementVector.push_back(&ce);
     req.updateActionType.set("APPEND");

@@ -153,10 +153,15 @@ static void compoundValueBson(std::vector<orion::CompoundValueNode*> children, B
 */
 void bsonAppendAttrValue(BSONObjBuilder& bsonAttr, ContextAttribute* caP)
 {
-  switch(caP->valueType)
+  LM_M(("IN bsonAppendAttrValue. valueType == %d, valueGiven == %s", caP->valueType, (caP->valueGiven == true)? "TRUE" : "FALSE"));
+  switch (caP->valueType)
   {
     case ValueTypeString:
-      bsonAttr.append(ENT_ATTRS_VALUE, caP->stringValue);
+      LM_M(("KZ: stringValue: '%s'. valueGiven: %s", caP->stringValue.c_str(), caP->valueGiven? "TRUE" : "FALSE"));
+      if ((caP->stringValue != "") || (caP->valueGiven == true))
+      {
+        bsonAttr.append(ENT_ATTRS_VALUE, caP->stringValue);
+      }
       break;
 
     case ValueTypeNumber:
@@ -181,6 +186,7 @@ static void valueBson(ContextAttribute* caP, BSONObjBuilder& bsonAttr)
 {
   if (caP->compoundValueP == NULL)
   {
+    LM_M(("Calling bsonAppendAttrValue"));
     bsonAppendAttrValue(bsonAttr, caP);
   }
   else
@@ -488,6 +494,11 @@ static bool mergeAttrInfo(BSONObj& attr, ContextAttribute* caP, BSONObj* mergedA
   {
     valueBson(caP, ab);
   }
+  else if (caP->valueGiven)
+  {
+    LM_M(("CALLING valueBson !!!"));
+    valueBson(caP, ab);
+  }
   else
   {
     /* Slightly different treatment, depending on attribute value type in DB (string, number, boolean, vector or object) */
@@ -510,7 +521,21 @@ static bool mergeAttrInfo(BSONObj& attr, ContextAttribute* caP, BSONObj* mergedA
         break;
 
       case String:
-        ab.append(ENT_ATTRS_VALUE, STR_FIELD(attr, ENT_ATTRS_VALUE));
+        //
+        // Note that with the recent change (Sep 15 2015), we allow attributes to have EMPTY value, so we need
+        // to do more checks before deciding to change the value.
+        // If the value is EMPTY and is a string, then the field 'valueGiven' must have been set to TRUE by the 
+        // V2 JSON parser in order for the attribute value to be modified.
+        //
+        if ((caP->stringValue != "") || (caP->valueGiven == true))
+        {
+          LM_M(("KZ: Setting stringValue to '%s'", caP->stringValue.c_str()));
+          ab.append(ENT_ATTRS_VALUE, STR_FIELD(attr, ENT_ATTRS_VALUE));
+        }
+        else
+        {
+          LM_M(("KZ: NOT Setting stringValue to '%s'", caP->stringValue.c_str()));
+        }
         break;
 
       default:
@@ -692,6 +717,8 @@ static bool contextAttributeCustomMetadataToBson(BSONObj& mdV, ContextAttribute*
 */
 static bool updateAttribute(BSONObj& attrs, BSONObjBuilder* toSet, BSONArrayBuilder* toPush, ContextAttribute* caP, bool& actualUpdate, bool isReplace)
 {
+  LM_M(("In updateAttribute"));
+
   actualUpdate = false;
 
   /* Attributes with metadata ID are stored as <attrName>__<ID> in the attributes embedded document */
@@ -710,6 +737,7 @@ static bool updateAttribute(BSONObj& attrs, BSONObjBuilder* toSet, BSONArrayBuil
     newAttr.appendElements(BSON(ENT_ATTRS_TYPE << caP->type <<
                                 ENT_ATTRS_CREATION_DATE << now <<
                                 ENT_ATTRS_MODIFICATION_DATE << now));
+    LM_M(("Calling valueBson"));
     valueBson(caP, newAttr);
 
     /* Custom metadata */
@@ -726,6 +754,7 @@ static bool updateAttribute(BSONObj& attrs, BSONObjBuilder* toSet, BSONArrayBuil
   {
     if (!attrs.hasField(effectiveName.c_str()))
     {
+      LM_M(("hasField error"));
       return false;
     }
 
@@ -733,11 +762,15 @@ static bool updateAttribute(BSONObj& attrs, BSONObjBuilder* toSet, BSONArrayBuil
     BSONObj attr = attrs.getField(effectiveName).embeddedObject();
     actualUpdate = mergeAttrInfo(attr, caP, &newAttr);
 
+    LM_M(("actualUpdate: %s", (actualUpdate == true)? "TRUE" : "FALSE"));
     if (actualUpdate)
     {
       const std::string composedName = std::string(ENT_ATTRS) + "." + effectiveName;
+      LM_M(("Appending newAttr"));
       toSet->append(composedName, newAttr);
     }
+    else
+      LM_M(("Not Appending newAttr"));
   }
 
 
@@ -771,6 +804,7 @@ static void appendAttribute(BSONObj& attrs, BSONObjBuilder* toSet, BSONArrayBuil
   /* APPEND with existing attribute equals to UPDATE */
   if (attrs.hasField(effectiveName.c_str()))
   {
+    LM_M(("Calling updateAttribute"));
     updateAttribute(attrs, toSet, toPush, caP, actualUpdate, false);
     return;
   }
@@ -779,6 +813,7 @@ static void appendAttribute(BSONObj& attrs, BSONObjBuilder* toSet, BSONArrayBuil
   BSONObjBuilder ab;
 
   /* 1. Value */
+  LM_M(("Calling valueBson"));
   valueBson(caP, ab);
 
   /* 2. Type */
@@ -1576,6 +1611,8 @@ static bool appendContextAttributeItem
 {
   if (legalIdUsage(attrs, targetAttr))
   {
+    LM_M(("legalIdUsage() returned OK"));
+
     appendAttribute(attrs, toSet, toPush, targetAttr, actualUpdate);
     entityModified = actualUpdate || entityModified;
 
@@ -1625,6 +1662,8 @@ static bool appendContextAttributeItem
   }
   else
   {
+    LM_M(("legalIdUsage() returned false"));
+
     /* If legalIdUsage() returns false, then that particular attribute can not be appended. In this case,
      * we interrupt the processing and early return with
      * a error StatusCode */
@@ -1747,6 +1786,8 @@ static bool processContextAttributeVector
     /* No matter if success or fail, we have to include the attribute in the response */
     ContextAttribute*  ca         = new ContextAttribute(targetAttr->name, targetAttr->type, "");
 
+    ca->valueGiven = targetAttr->valueGiven;
+
     setResponseMetadata(targetAttr, ca);
     cerP->contextElement.contextAttributeVector.push_back(ca);
 
@@ -1755,6 +1796,7 @@ static bool processContextAttributeVector
     bool actualUpdate = true;
     if ((strcasecmp(action.c_str(), "update")) == 0 || (strcasecmp(action.c_str(), "replace")) == 0)
     {
+      LM_M(("Calling updateContextAttributeItem"));
       if (!updateContextAttributeItem(cerP,
                                       ca,
                                       attrs,
@@ -1769,13 +1811,16 @@ static bool processContextAttributeVector
                                       coordLong,
                                       strcasecmp(action.c_str(), "replace") == 0))
       {
+        LM_M(("updateContextAttributeItem returned FALSE"));
         return false;
       }
     }
     else if ((strcasecmp(action.c_str(), "append") == 0) || (strcasecmp(action.c_str(), "append_strict") == 0))
     {
+      LM_M(("Calling appendContextAttributeItem"));
       if (!appendContextAttributeItem(cerP, ca, attrs, targetAttr, eP, toSet, toPush, actualUpdate, entityModified, locAttr, coordLat, coordLong))
       {
+        LM_M(("appendContextAttributeItem returned FALSE"));
         return false;
       }
     }
@@ -1788,6 +1833,7 @@ static bool processContextAttributeVector
     }
     else
     {
+      LM_M(("SccInvalidParameter"));
       cerP->statusCode.fill(SccInvalidParameter, std::string("unknown actionType: '") + action + "'");
 
       // This is a BUG in the parse layer checks
@@ -2235,7 +2281,7 @@ void processContextElement
     {
       ContextAttribute* aP = ceP->contextAttributeVector[ix];
 
-      if (emptyAttributeValue(aP) && (aP->metadataVector.size() == 0))
+      if (emptyAttributeValue(aP) && (aP->metadataVector.size() == 0) && (aP->valueGiven == false))
       {
         ContextAttribute* ca = new ContextAttribute(aP);
 
@@ -2462,6 +2508,7 @@ void processContextElement
       attributeAlreadyExistsList += " ]";
     }
 
+    LM_M(("Calling processContextAttributeVector"));
     if (!processContextAttributeVector(ceP,
                                        action,
                                        subsToNotify,
@@ -2675,6 +2722,8 @@ void processContextElement
     {
       ContextAttribute*  caP  = ceP->contextAttributeVector.get(ix);
       ContextAttribute*  ca   = new ContextAttribute(caP->name, caP->type, "", foundValue);
+
+      ca->valueGiven = caP->valueGiven;
 
       setResponseMetadata(caP, ca);
       cerP->contextElement.contextAttributeVector.push_back(ca);

@@ -76,7 +76,7 @@ orionCurl --url "$url" --payload "${payload}"
 --REGEXPECT--
 1: Empty context attribute value for JSON
 HTTP/1.1 200 OK
-Content-Length: 679
+Content-Length: 446
 Content-Type: application/json
 Date: REGEX(.*)
 
@@ -96,9 +96,8 @@ Date: REGEX(.*)
                 "type": "ZBarFilter"
             },
             "statusCode": {
-                "code": "472",
-                "details": "action: APPEND - entity: [ZBarHandlerkla860agfdg4s5s2g7n4iiucrm, ZBarFilter, false] - offending attribute: CodeFoundEvent - empty attribute not allowed in APPEND or UPDATE",
-                "reasonPhrase": "request parameter is invalid/not allowed"
+                "code": "200",
+                "reasonPhrase": "OK"
             }
         }
     ]
