@@ -32,6 +32,8 @@
 #include "apiTypesV2/Entity.h"
 #include "ngsi10/QueryContextResponse.h"
 
+#include "common/JsonHelper.h"
+
 
 
 /* ****************************************************************************
@@ -58,6 +60,7 @@ Entity::~Entity()
 *
 * Entity::render - 
 */
+#if 0
 std::string Entity::render(ConnectionInfo* ciP, RequestType requestType, bool comma)
 {
   if ((errorCode.description == "") && ((errorCode.error == "OK") || (errorCode.error == "")))
@@ -90,6 +93,30 @@ std::string Entity::render(ConnectionInfo* ciP, RequestType requestType, bool co
 
   return errorCode.toJson(true);
 }
+#else
+std::string Entity::render(ConnectionInfo* ciP, RequestType requestType, bool comma)
+{
+  if ((errorCode.description == "") && ((errorCode.error == "OK") || (errorCode.error == "")))
+  {
+    JsonHelper jh;
+
+    jh.addString("id", id);
+    if (type != "")
+    {
+      jh.addString("type", type);
+    }
+    for (unsigned int ix = 0; ix < attributeVector.size(); ++ix)
+    {
+      ContextAttribute* caP = attributeVector.get(ix);
+      jh.addRaw(caP->name, caP->toJsonV2());
+    }
+
+    return jh.str();
+  }
+
+  return errorCode.toJson(true);
+}
+#endif
 
 
 

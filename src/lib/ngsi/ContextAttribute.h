@@ -83,6 +83,7 @@ typedef struct ContextAttribute
   std::string  renderAsJsonObject(ConnectionInfo* ciP, RequestType request, const std::string& indent, bool comma, bool omitValue = false);
   std::string  renderAsNameString(ConnectionInfo* ciP, RequestType request, const std::string& indent, bool comma = false);
   std::string  toJson(bool isLastElement, bool types);
+  std::string  toJsonV2();
   void         present(const std::string& indent, int ix);
   void         release(void);
   std::string  toString(void);

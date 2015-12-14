@@ -624,6 +624,37 @@ std::string ContextAttribute::toJson(bool isLastElement, bool types)
   return out;
 }
 
+std::string ContextAttribute::toJsonV2()
+{
+  if (compoundValueP != NULL)
+  {
+    if (compoundValueP->isObject())
+    {
+      return "{" + compoundValueP->toJson(true) + "}";
+    }
+    else if (compoundValueP->isVector())
+    {
+      return "[" + compoundValueP->toJson(true) + "]";
+    }
+  }
+  else if (valueType == orion::ValueTypeNumber)
+  {
+    char num[32];
+    snprintf(num, sizeof(num), "%f", numberValue);
+    return num;
+  }
+  else if (valueType == orion::ValueTypeString)
+  {
+    return "\"" + stringValue + "\"";
+  }
+  else if (valueType == orion::ValueTypeBoolean)
+  {
+    return boolValue? "true" : "false";
+  }
+
+  // FIXME: raise error
+  return "";
+}
 
 
 /* ****************************************************************************
